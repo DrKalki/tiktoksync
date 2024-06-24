@@ -1,4 +1,4 @@
-from flask import Flask, redirect, url_for, session, request, render_template
+from flask import Flask, redirect, url_for, session, request, render_template, send_file
 import os
 from dotenv import load_dotenv
 import logging
@@ -51,16 +51,18 @@ def analyze():
     token_info = spotify_auth.get_spotify_token()
     sp = spotify_auth.get_spotify_client(token_info)
     playlists = sp.current_user_playlists()
-    if playlists['items']:
-        playlist_id = playlists['items'][0]['id']
-        tracks = sp.playlist_tracks(playlist_id)['items']
+    matched_song = None
+    
+    for playlist in playlists['items']:
+        tracks = sp.playlist_tracks(playlist['id'])['items']
         track_ids = [track['track']['id'] for track in tracks]
         spotify_audio_features = sp.audio_features(track_ids)
-        logging.debug(f"Spotify audio features: {spotify_audio_features}")
+        matched_song = find_best_match(tiktok_audio_features, spotify_audio_features)
+        if matched_song:
+            break
     
-    matched_song = find_best_match(tiktok_audio_features, spotify_audio_features)
     logging.debug(f"Matched song: {matched_song}")
-    return f"Matched Song: {matched_song['name']}"
+    return render_template('matched_song.html', song=matched_song)
 
 if __name__ == '__main__':
     app.run(debug=True, port=8888)
