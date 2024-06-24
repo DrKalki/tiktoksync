@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+
+{% block title %}Home{% endblock %}
+
+{% block content %}
+<h1>Welcome to Spotify TikTok Sync</h1>
+<form action="{{ url_for('analyze') }}" method="post" enctype="multipart/form-data">
+    <label for="audio">Upload TikTok Audio:</label>
+    <input type="file" name="audio" accept="audio/*" required>
+    <button type="submit">Analyze and Match Music</button>
+</form>
+<h2>Your Spotify Playlists</h2>
+<ul>
+    {% for playlist in playlists['items'] %}
+    <li>{{ playlist['name'] }} ({{ playlist['tracks']['total'] }} tracks)</li>
+    {% endfor %}
+</ul>
+{% endblock %}

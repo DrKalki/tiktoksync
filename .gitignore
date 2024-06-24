@@ -1,0 +1,18 @@
+# Python
+*.pyc
+__pycache__/
+
+# Environment variables
+.env
+
+# Virtual environments
+venv/
+.myenv/
+
+# Cache files
+.cache/
+
+# Moviepy cache
+*.mp4.cache
+*.avi.cache
+*.mov.cache
