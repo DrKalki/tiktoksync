@@ -3,17 +3,29 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}{% endblock %}</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <title>{% block title %}Spotify TikTok Sync{% endblock %}</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css">
+    <style>
+        body {
+            padding-top: 5rem;
+        }
+        .container {
+            max-width: 960px;
+        }
+        .footer {
+            padding: 2rem 0;
+            text-align: center;
+        }
+    </style>
 </head>
 <body>
-    <header>
-        <h1>Spotify TikTok Sync</h1>
-    </header>
-    <main>
+    <nav class="navbar navbar-expand-md navbar-dark bg-dark fixed-top">
+        <a class="navbar-brand" href="#">Spotify TikTok Sync</a>
+    </nav>
+    <main role="main" class="container">
         {% block content %}{% endblock %}
     </main>
-    <footer>
+    <footer class="footer">
         <p>&copy; 2024 Spotify TikTok Sync</p>
     </footer>
 </body>

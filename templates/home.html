@@ -3,16 +3,27 @@
 {% block title %}Home{% endblock %}
 
 {% block content %}
-<h1>Welcome to Spotify TikTok Sync</h1>
-<form action="{{ url_for('analyze') }}" method="post" enctype="multipart/form-data">
-    <label for="audio">Upload TikTok Audio:</label>
-    <input type="file" name="audio" accept="audio/*" required>
-    <button type="submit">Analyze and Match Music</button>
-</form>
-<h2>Your Spotify Playlists</h2>
-<ul>
-    {% for playlist in playlists['items'] %}
-    <li>{{ playlist['name'] }} ({{ playlist['tracks']['total'] }} tracks)</li>
-    {% endfor %}
-</ul>
+<div class="starter-template">
+    <h1>Welcome to Spotify TikTok Sync</h1>
+    <form action="{{ url_for('analyze') }}" method="post" enctype="multipart/form-data" class="mb-4">
+        <div class="form-group">
+            <label for="audio">Upload TikTok Audio:</label>
+            <input type="file" name="audio" accept="audio/*" class="form-control-file">
+        </div>
+        <button type="submit" class="btn btn-primary">Analyze and Match Music</button>
+    </form>
+    <form action="{{ url_for('fetch_audio') }}" method="post" class="mb-4">
+        <div class="form-group">
+            <label for="tiktok_url">Or enter TikTok URL:</label>
+            <input type="url" name="tiktok_url" class="form-control" placeholder="https://www.tiktok.com/@username/video/1234567890">
+        </div>
+        <button type="submit" class="btn btn-secondary">Fetch and Analyze</button>
+    </form>
+    <h2>Your Spotify Playlists</h2>
+    <ul class="list-group">
+        {% for playlist in playlists['items'] %}
+        <li class="list-group-item">{{ playlist['name'] }} ({{ playlist['tracks']['total'] }} tracks)</li>
+        {% endfor %}
+    </ul>
+</div>
 {% endblock %}
