@@ -1,139 +1,75 @@
-from flask import render_template, redirect, url_for, session, request, flash
-import logging
-from auth.spotify_auth import spotify_auth
-from analysis.analyze import analyze_audio
-from analysis.match import find_best_match
-import youtube_dl
+from flask import Flask, request, redirect, url_for, flash, session
+import os
+import spotipy
+from spotipy.oauth2 import SpotifyOAuth
+from flask import Blueprint, render_template
 
-def register_routes(app):
-    @app.route('/')
-    def login():
-        app.logger.debug("Redirecting to Spotify login")
-        return redirect(spotify_auth.sp_oauth.get_authorize_url())
+# Create a blueprint
+routes = Blueprint('routes', __name__)
 
-    @app.route('/callback')
-    def callback():
-        app.logger.debug("Handling callback from Spotify")
-        token_info = spotify_auth.sp_oauth.get_access_token(request.args['code'])
-        app.logger.debug(f"Received token_info: {token_info}")
-        session['token_info'] = token_info
+@routes.route('/')
+def index():
+    return redirect(url_for('home'))
+
+@routes.route('/home')
+def home():
+    playlists = []  # Example data; replace with actual data fetching logic
+    return render_template('home.html', playlists=playlists)
+
+@routes.route('/login')
+def login():
+    sp_oauth = SpotifyOAuth(client_id=os.getenv("SPOTIPY_CLIENT_ID"),
+                            client_secret=os.getenv("SPOTIPY_CLIENT_SECRET"),
+                            redirect_uri=os.getenv("SPOTIPY_REDIRECT_URI"),
+                            scope="playlist-read-private")
+    auth_url = sp_oauth.get_authorize_url()
+    return redirect(auth_url)
+
+@routes.route('/callback')
+def callback():
+    sp_oauth = SpotifyOAuth(client_id=os.getenv("SPOTIPY_CLIENT_ID"),
+                            client_secret=os.getenv("SPOTIPY_CLIENT_SECRET"),
+                            redirect_uri=os.getenv("SPOTIPY_REDIRECT_URI"),
+                            scope="playlist-read-private")
+    code = request.args.get('code')
+    token_info = sp_oauth.get_access_token(code)
+    app.logger.debug(f"Received token info: {token_info}")
+    session['token_info'] = token_info
+    return redirect(url_for('home'))
+
+@routes.route('/analyze', methods=['POST'])
+def analyze():
+    app.logger.debug("Analyzing uploaded audio")
+    audio_file = request.files['audio']
+    if not audio_file:
+        flash("No audio file uploaded")
         return redirect(url_for('home'))
 
-    @app.route('/home')
-    def home():
-        app.logger.debug("Loading home page")
-        token_info = spotify_auth.get_spotify_token()
-        if not token_info:
-            flash('Error fetching Spotify token')
-            return redirect(url_for('login'))
-        
-        sp = spotify_auth.get_spotify_client(token_info)
-        try:
-            playlists = sp.current_user_playlists()
-        except spotipy.exceptions.SpotifyException as e:
-            app.logger.error(f"Spotify API error: {e}")
-            flash('Error fetching playlists from Spotify')
-            return redirect(url_for('login'))
-        
-        app.logger.debug(f"Playlists: {playlists}")
-        return render_template('home.html', playlists=playlists['items'])
+    audio_file_path = os.path.join('uploads', audio_file.filename)
+    audio_file.save(audio_file_path)
+    app.logger.debug(f"Saved audio file to {audio_file_path}")
 
-    @app.route('/analyze', methods=['POST'])
-    def analyze():
-        app.logger.debug("Analyzing uploaded audio")
-        audio_file = request.files['audio']
-        if not audio_file:
-            flash('No audio file uploaded')
-            return redirect(url_for('home'))
-        
-        audio_file_path = os.path.join('uploads', audio_file.filename)
-        audio_file.save(audio_file_path)
-        app.logger.debug(f"Saved audio file to {audio_file_path}")
+    try:
+        tiktok_audio_features = analyze_audio(audio_file_path)
+        app.logger.debug(f"Analyzed audio features: {tiktok_audio_features}")
+    except Exception as e:
+        app.logger.error(f"Error analyzing audio: {e}")
+        flash("Failed to analyze audio. Please check the file and try again.", 'danger')
+        return redirect(url_for('home'))
 
-        try:
-            tiktok_audio_features = analyze_audio(audio_file_path)
-            app.logger.debug(f"Analyzed audio features: {tiktok_audio_features}")
-        except Exception as e:
-            app.logger.error(f"Error analyzing audio: {e}")
-            flash('Error analyzing audio file')
-            return redirect(url_for('home'))
+    flash("Audio successfully uploaded and processed.", 'success')
+    return redirect(url_for('home'))
 
-        token_info = spotify_auth.get_spotify_token()
-        if not token_info:
-            flash('Error fetching Spotify token')
-            return redirect(url_for('login'))
-        
-        sp = spotify_auth.get_spotify_client(token_info)
-        matched_song = None
-        
-        try:
-            playlists = sp.current_user_playlists()
-            for playlist in playlists['items']:
-                tracks = sp.playlist_tracks(playlist['id'])['items']
-                track_ids = [track['track']['id'] for track in tracks]
-                spotify_audio_features = sp.audio_features(track_ids)
-                matched_song = find_best_match(tiktok_audio_features, spotify_audio_features)
-                if matched_song:
-                    break
-        except spotipy.exceptions.SpotifyException as e:
-            app.logger.error(f"Spotify API error: {e}")
-            flash('Error fetching audio features from Spotify')
-            return redirect(url_for('home'))
-        
-        app.logger.debug(f"Matched song: {matched_song}")
-        return render_template('matched_song.html', song=matched_song)
+def analyze_audio(file_path):
+    # Dummy function; replace with actual audio analysis logic
+    return {"feature1": "value1", "feature2": "value2"}
 
-    @app.route('/fetch_audio', methods=['POST'])
-    def fetch_audio():
-        tiktok_url = request.form['tiktok_url']
-        if not tiktok_url:
-            flash('No TikTok URL provided')
-            return redirect(url_for('home'))
+# Register blueprint in the main app
+def create_app():
+    app = Flask(__name__)
+    app.register_blueprint(routes)
+    return app
 
-        ydl_opts = {
-            'format': 'bestaudio/best',
-            'postprocessors': [{
-                'key': 'FFmpegExtractAudio',
-                'preferredcodec': 'mp3',
-                'preferredquality': '192',
-            }],
-            'outtmpl': 'downloads/%(title)s.%(ext)s',
-        }
-
-        try:
-            with youtube_dl.YoutubeDL(ydl_opts) as ydl:
-                info_dict = ydl.extract_info(tiktok_url, download=True)
-                audio_file_path = ydl.prepare_filename(info_dict).replace('.webm', '.mp3')
-                app.logger.debug(f"Downloaded audio file to {audio_file_path}")
-
-            tiktok_audio_features = analyze_audio(audio_file_path)
-            app.logger.debug(f"Analyzed audio features: {tiktok_audio_features}")
-        except Exception as e:
-            app.logger.error(f"Error fetching or analyzing TikTok audio: {e}")
-            flash('Error fetching or analyzing TikTok audio')
-            return redirect(url_for('home'))
-
-        token_info = spotify_auth.get_spotify_token()
-        if not token_info:
-            flash('Error fetching Spotify token')
-            return redirect(url_for('login'))
-        
-        sp = spotify_auth.get_spotify_client(token_info)
-        matched_song = None
-        
-        try:
-            playlists = sp.current_user_playlists()
-            for playlist in playlists['items']:
-                tracks = sp.playlist_tracks(playlist['id'])['items']
-                track_ids = [track['track']['id'] for track in tracks]
-                spotify_audio_features = sp.audio_features(track_ids)
-                matched_song = find_best_match(tiktok_audio_features, spotify_audio_features)
-                if matched_song:
-                    break
-        except spotipy.exceptions.SpotifyException as e:
-            app.logger.error(f"Spotify API error: {e}")
-            flash('Error fetching audio features from Spotify')
-            return redirect(url_for('home'))
-        
-        app.logger.debug(f"Matched song: {matched_song}")
-        return render_template('matched_song.html', song=matched_song)
+if __name__ == '__main__':
+    app = create_app()
+    app.run(debug=True, port=8888)
