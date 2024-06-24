@@ -15,3 +15,5 @@ __pycache__/
 *.mp4.cache
 *.avi.cache
 *.mov.cache
+
+push_to_git.sh
